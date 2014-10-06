@@ -40,7 +40,7 @@ LATITUDE = 39.08
 LONGITUDE = -94.58
 COUNTRY = "KS"     # or State
 CITY = "Shawnee_Mission"
-KEY = "Your Key"      # get your key at Weatherunderground.  They are free.  But there are daily limits and rate limits.
+KEY = "My Key"      # get your key at Weatherunderground.  They are free.  But there are daily limits and rate limits.
 level = 1   #debug level.  0 gives a summary.  1 & 2 gives progressively more info.
 window = 5 #number of days to go back into the history to compute deficit/surplus.  maybe computing deficit or surplus from more than 2 days ago, has no value.
 
@@ -144,7 +144,7 @@ def getHistoricalData(forecast):
     today = date.today() - timedelta(day)
     datestring = today.strftime("%Y%m%d")
 
-    if (day < 0):     #delete file already downloaded to get most recent?    Was set to 4  @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+    if (day < 4):     #delete file already downloaded to get most recent?  Was set to 4
       try:
         os.remove("data/" + datestring)
       except OSError:
@@ -154,7 +154,7 @@ def getHistoricalData(forecast):
       data = json.load(open("data/" + datestring))
       source = "file " + datestring
     except:
-      #             http://api.wunderground.com/api/your key/history_20141003/q/KS/Shawnee_Mission.json
+      #             http://api.wunderground.com/api/My Key/history_20141003/q/KS/Shawnee_Mission.json
       historyURL = 'http://api.wunderground.com/api/' + KEY + '/history_' + datestring + '/q/' + COUNTRY + '/' + CITY + '.json'
       if (window > 4): time.sleep(10)    #don't exceed API rate limits
       response = urllib.urlopen(historyURL).read()
@@ -247,6 +247,8 @@ def getHistoricalData(forecast):
     humidMax = float(data['history']['dailysummary'][0]['maxhumidity']) # degrees C
     humidMin = float(data['history']['dailysummary'][0]['minhumidity']) # degrees C
     rainfall = float(data['history']['dailysummary'][0]['precipm']) # rainfall mm
+    if (rainfall > 18): rainfall = 18  # caps the amount of rainfall to account for soil not being able to absorb the water fast enough to use.
+                                       # 18 is mm and may be enough for three days watering.
 
     D = 4098 * saturationVapourPressure(tempAvg) / math.pow(tempAvg + 237.3,2)
     g = 0.665e-3 * pressure
@@ -281,7 +283,7 @@ def getHistoricalData(forecast):
     ETr = EToy / Norm_ET   # Ratio determined with rainfall and balance considered.
     EToi = - beginBalance - rainfall + EToy  # Today's irrigation
     if (EToi < 0): EToi = 0
-    endBalance = beginBalance - EToy + rainfall - EToi      # Use EToy here because it is yesterday's ET, which we will use to irrigate today
+    endBalance = beginBalance - EToy + rainfall + EToi      # Use EToy here because it is yesterday's ET, which we will use to irrigate today
 
     #  fi = json.load(open("balance/" + datestring + ".json", 'wb'))
     fi = open("balance/" + datestring + ".json", "w")                 # write file.  NO reason to open ??
@@ -361,6 +363,7 @@ def getHistoricalData(forecast):
       hs.WriteLog("Debug","D1: On (sprinklers off) and D2: On (sprinklers off)")
     else:
       hs.SetDeviceString(HS_RT_Dev,"Off")    # Sprinklers will run
+      hs.SetDeviceString(HS_RT1_Dev,"Off")    # Sprinklers will run
       hs.WriteLog("Debug","D1: Off (sprinklers run) and D2: Off (sprinklers run)")
   except:
     pass
